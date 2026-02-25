@@ -1,0 +1,52 @@
+name: citas-gestion-prod
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: citas_db_prod
+    restart: unless-stopped
+    env_file: [.env.production]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin_zonasur}
+      POSTGRES_DB: ${POSTGRES_DB:-citas_db_prod}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - citas_db_prod_data:/var/lib/postgresql/data
+    networks: [citas_net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 20s
+
+  app:
+    build: { context: ., dockerfile: Dockerfile }
+    image: citas-gestion-zonasurtech:prod
+    container_name: citas_app_prod
+    restart: unless-stopped
+    command: ["node", "server.js"]
+    env_file: [.env.production]
+    extra_hosts:
+      - "zonasurtech.online:host-gateway"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      NODE_OPTIONS: "--max-http-header-size=131072"
+      AUTH_TRUST_HOST: "true"
+      AUTH_URL: "https://zonasurtech.online"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-admin_zonasur}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-citas_db_prod}?schema=public"
+    depends_on:
+      db: { condition: service_healthy }
+    ports: ["127.0.0.1:3000:3000"]
+    networks: [citas_net]
+    healthcheck:
+      test: ["CMD-SHELL", "node -e 'require(\"http\").get(\"http://localhost:3000/\", (res) => process.exit(res.statusCode < 500 ? 0 : 1))'"]
+      interval: 30s
+      start_period: 60s
+
+networks:
+  citas_net: { driver: bridge }
+
+volumes:
+  citas_db_prod_data: { driver: local }

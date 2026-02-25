@@ -1,0 +1,18 @@
+# Dependencias
+node_modules/
+.next/
+out/
+build/
+
+# Entorno y Secretos
+.env
+.env.local
+.env.production
+.env*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker & OS
+.DS_Store
